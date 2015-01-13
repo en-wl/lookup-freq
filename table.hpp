@@ -2,6 +2,7 @@
 #define table__hpp
 
 #include <vector>
+#include <iterator>
 
 #include <type_traits>
 template <typename T>
@@ -61,18 +62,19 @@ template <typename T, class Key, class Merge>
 MergeTableCreator<T,Key,Merge>
 merge_table_creator(Key key, Merge merge) {return {key, merge};}
 
-template <typename T, typename I> 
-struct MapViewItr {
+template <typename T, typename I, typename V> 
+struct MapViewItr : public iterator<forward_iterator_tag,V> 
+{
   I start, i;
   MapViewItr(I i) : start(i), i(i) {}
-  auto operator*() const {return make_pair(T::key(0) + (i - start),*i);}
+  V operator*() const {return {T::key(0) + (i - start),*i};}
   auto operator++() {++i; return *this;}
   auto operator++(int) {auto tmp = *this; ++i; return *this;}
 };
-template <typename T, typename I>
-inline bool operator==(MapViewItr<T,I> x, MapViewItr<T,I> y) {return x.i == y.i;}
-template <typename T, typename I>
-inline bool operator!=(MapViewItr<T,I> x, MapViewItr<T,I> y) {return x.i != y.i;}
+template <typename T, typename I, typename V>
+inline bool operator==(MapViewItr<T,I,V> x, MapViewItr<T,I,V> y) {return x.i == y.i;}
+template <typename T, typename I, typename V>
+inline bool operator!=(MapViewItr<T,I,V> x, MapViewItr<T,I,V> y) {return x.i != y.i;}
 
 template <typename T, typename Vec>
 struct MapView {
@@ -81,8 +83,8 @@ struct MapView {
   typedef typename T::Idx            key_type;
   typedef typename Vec::value_type   mapped_type;
   typedef pair<key_type,mapped_type> value_type;
-  typedef MapViewItr<T, typename Vec::iterator>       iterator;
-  typedef MapViewItr<T, typename Vec::const_iterator> const_iterator;
+  typedef MapViewItr<T, typename Vec::iterator,       value_type> iterator;
+  typedef MapViewItr<T, typename Vec::const_iterator, value_type> const_iterator;
   iterator begin() {return {data.begin()};}
   iterator end()   {return {data.end()};}
   const_iterator begin() const {return {data.begin()};}
@@ -95,6 +97,7 @@ struct MapView {
 
 template <typename T, typename Vec>
 struct TableLike : Vec {
+  typedef MapView<T,Vec> View;
   MapView<T,Vec> view = *this;
   template<typename... Args>
   TableLike(Args&&... args) : Vec(forward<Args>(args)...) {}

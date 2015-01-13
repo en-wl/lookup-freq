@@ -107,6 +107,11 @@ struct FreqsExclude : SimpleIndex<> {
   using Row = Freqs::Row;
 };
 
+struct FreqsFiltered : SimpleIndex<> {
+  static constexpr auto fn = "FreqsFiltered.dat";
+  using Row = Freqs::Row;
+};
+
 struct FreqsLower : SimpleIndex<> {
   static constexpr auto fn = "FreqsLower.dat";
   struct Row {
@@ -121,11 +126,17 @@ struct Counted : YearIndex {
   typedef double Row;
 };
 
-enum FreqFilter {All, Recent};
+enum YearFilter {All, Recent};
 
-template <FreqFilter Filter>
-struct Freq : SimpleIndex<LowerId> {
-  static constexpr auto fn = Filter == All ? "FreqAll.dat" : "FreqRecent.dat";
+template <YearFilter Filter>
+struct FreqFiltered : SimpleIndex<WordId> {
+  static constexpr auto fn = Filter == All ? "FreqAllFiltered.dat" : "FreqRecentFiltered.dat";
+  typedef float Row;
+};
+
+template <YearFilter Filter>
+struct FreqLower : SimpleIndex<LowerId> {
+  static constexpr auto fn = Filter == All ? "FreqAllLower.dat" : "FreqRecentLower.dat";
   typedef float Row;
 };
 

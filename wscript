@@ -35,13 +35,21 @@ def build(bld):
       rule="./tally_freqs_excl", 
       source="FreqsPos.dat",
       target="FreqsExclude.dat")
-
-  gen("tally_freqs_lower",
-      rule="./tally_freqs_lower | tee tally_freqs_lower.log", 
+  
+  gen("filter_freqs",
+      rule="./filter_freqs",
       source="Freqs.dat FreqsExclude.dat ToLower.dat",
-      target="FreqsLower.dat Counted.dat")
+      target="FreqsFiltered.dat Counted.dat")
+
+  #gen("tally_freqs_lower",
+  #    rule="./tally_freqs_lower | tee tally_freqs_lower.log", 
+  #    source="Freqs.dat FreqsExclude.dat ToLower.dat",
+  #    target="FreqsLower.dat Counted.dat")
   
   gen("gather",
       rule="./gather",
-      source="FreqsLower.dat Counted.dat LowerLookup.dat",
-      target="FreqAll.dat FreqRecent.dat")
+      source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat",
+      target="FreqAllLower.dat FreqRecentLower.dat FreqAllFiltered.dat FreqRecentFiltered.dat")
+
+  gen("report",
+      rule="true")

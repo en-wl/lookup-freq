@@ -11,7 +11,7 @@ struct YearDenom : YearIndex {
 };
 
 int main() {
-  Table<FreqsLower> freqs;
+  Table<FreqsFiltered> freqs;
   TmpTable<YearDenom> denom_all;
   TmpTable<YearDenom> denom_recent;
   {
@@ -33,13 +33,20 @@ int main() {
     }
   }
   {
-    Table<LowerLookup>     lower_lookup;
-    MutTable<Freq<All>>    freq_all(lower_lookup.size());
-    MutTable<Freq<Recent>> freq_recent(lower_lookup.size());
+    Table<ToLower>     to_lower;
+    Table<LowerLookup> lower_lookup;
+    MutTable<FreqFiltered<All>>    filtered_all(to_lower.size());
+    MutTable<FreqFiltered<Recent>> filtered_recent(to_lower.size());
+    MutTable<FreqLower<All>>    lower_all(lower_lookup.size());
+    MutTable<FreqLower<Recent>> lower_recent(lower_lookup.size());
     for (auto v : freqs) {
-      freq_all.view[v.lid] += v.freq/denom_all.view[v.year];
-      if (v.year >= 1980)
-        freq_recent.view[v.lid] += v.freq/denom_recent.view[v.year];
+      filtered_all[v.wid] += v.freq/denom_all.view[v.year];
+      lower_all[to_lower[v.wid]] += v.freq/denom_all.view[v.year];
+      if (v.year >= 1980) {
+        filtered_recent[v.wid] += v.freq/denom_recent.view[v.year];
+        lower_recent[to_lower[v.wid]] += v.freq/denom_recent.view[v.year];
+      }
     }
   }
+  return 0;
 }
