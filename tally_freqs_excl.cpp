@@ -6,24 +6,21 @@ using namespace std;
 #include "schema.hpp"
 #include "table.hpp"
 
-constexpr const char fn[] = "freqs_lower_exclude.dat";
 int main() {
+  auto key    = [](auto row){return make_tuple(row.wid,row.year);};
+  auto merger = [](auto & x, const auto & y) {x.freq += y.freq;};
   {
-    printf("creating\n");
     Table<FreqsPos> freqs;
-    Table<ToLower> to_lower;
-    TableCreator<FreqsLower<fn> > tmp;
+    auto tmp = merge_table_creator<FreqsExclude>(key, merger);
     for (auto row : freqs) {
-      LowerId lid = to_lower[row.wid];
-      if (lid > 0 && row.pos.exclude())
-        tmp.append_row({lid,row.year,row.freq});
+      if (row.pos.exclude()) {
+        tmp.append_row({row.wid,row.year,row.freq});
+      }
     }
+    assert(tmp.sorted);
   }
-  {
-    printf("sorting and merging");
-    MutTable<FreqsLower<fn> > tmp;
-    merge(tmp,
-          [](auto row){return tie(row.lid, row.year);},
-          [](auto & x, const auto & y){x.freq += y.freq;});
-  }
+  //{
+  //  MutTable<FreqsExclude> tmp;
+  //  merge(tmp, key, merger);
+  //}
 }

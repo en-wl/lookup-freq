@@ -87,9 +87,9 @@ struct StrEq {
   bool operator() (const char * a, const char * b) const {return strcmp(a,b)==0;}
 };
 
-struct WordLookup : std::unordered_map<const char *, WordId, StrHash, StrEq> {
+struct WordLookupByStr : std::unordered_map<const char *, WordId, StrHash, StrEq> {
   WordBuffer & word_buffer;
-  WordLookup(WordBuffer & b, const Word * i = NULL, const Word * e = NULL) : word_buffer(b) {
+  WordLookupByStr(WordBuffer & b, const Word * i = NULL, const Word * e = NULL) : word_buffer(b) {
     reserve(e-i);
     for (; i != e; ++i)
       insert({i->str(word_buffer), size()});
@@ -113,7 +113,7 @@ struct WordLookup : std::unordered_map<const char *, WordId, StrHash, StrEq> {
     }
     return found->second;
   }
-  unsigned add(Str & word, WordLookup & buffer_lookup) {
+  unsigned add(Str & word, WordLookupByStr & buffer_lookup) {
     auto found = find(word.data);
     if (found == end()) {
       auto p = buffer_lookup.find(word.data);

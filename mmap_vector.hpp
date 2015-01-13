@@ -11,6 +11,8 @@ struct MMapVector {
   size_t size_;
 
   typedef const T value_type;
+  typedef const T * iterator;
+  typedef const T * const_iterator;
   size_t size() const {return size_;}
   const T & at(size_t i) const {assert(i <= size_); return data[i];}
   const T & operator[] (int i) const {return data[i];}
@@ -41,6 +43,8 @@ struct MutMMapVector {
   size_t size_;
 
   typedef T value_type;
+  typedef T * iterator;
+  typedef const T * const_iterator;
   size_t size() const {return size_;}
   T & at(size_t i) {assert(i <= size_); return data[i];}
   T & operator[] (int i) {return data[i];}

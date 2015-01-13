@@ -44,23 +44,30 @@ struct SimpleIndex {
   static Idx    key(size_t t) {return static_cast<Idx>(t);}
 };
 
-struct WordLookupById : SimpleIndex<WordId> {
-  static constexpr const char * fn = "word_lookup.dat";
+struct YearIndex {
+  static const Year MIN_YEAR = 1700;
+  static size_t idx(Year y) {assert(y >= MIN_YEAR); return y-MIN_YEAR;}
+  static Year   key(size_t i) {return i + MIN_YEAR;}
+  typedef Year Idx;
+};
+
+struct WordLookup : SimpleIndex<WordId> {
+  static constexpr auto fn = "WordLookup.dat";
   typedef Word Row;
 };
 
 struct ToLower : SimpleIndex<WordId> {
-  static constexpr const char * fn = "word_lower.dat";
+  static constexpr auto fn = "ToLower.dat";
   typedef LowerId Row;
 };
 
 struct LowerLookup : SimpleIndex<LowerId> {
-  static constexpr const char * fn = "lower_lookup.dat";
+  static constexpr auto fn = "LowerLookup.dat";
   typedef Word Row;
 };
 
 struct Freqs : SimpleIndex<> {
-  static constexpr const char * fn = "freq.dat";
+  static constexpr auto fn = "Freqs.dat";
   struct Row {
     WordId wid;
     Year   year;
@@ -69,7 +76,7 @@ struct Freqs : SimpleIndex<> {
 };
 
 struct FreqsPos : SimpleIndex<> {
-  static constexpr const char * fn = "freq_w_pos.dat";
+  static constexpr auto fn = "FreqsPos.dat";
   struct Row {
     WordId wid;
     Pos    pos;
@@ -79,7 +86,7 @@ struct FreqsPos : SimpleIndex<> {
 };
 
 struct PosTotals : SimpleIndex<> {
-  static constexpr const char * fn = "pos_totals.dat";
+  static constexpr auto fn = "PosTotals.dat";
   struct Row {
     Year   year;
     Pos    pos;
@@ -88,16 +95,20 @@ struct PosTotals : SimpleIndex<> {
 };
 
 struct Totals : SimpleIndex<> {
-  static constexpr const char * fn = "totals.dat";
+  static constexpr auto fn = "Totals.dat";
   struct Row {
     Year   year;
     double freq;
   };
 };
 
-template <const char * FN>
+struct FreqsExclude : SimpleIndex<> {
+  static constexpr auto fn = "FreqsExclude.dat";
+  using Row = Freqs::Row;
+};
+
 struct FreqsLower : SimpleIndex<> {
-  static constexpr const char * fn = FN;
+  static constexpr auto fn = "FreqsLower.dat";
   struct Row {
     LowerId lid;
     Year    year;
@@ -105,27 +116,24 @@ struct FreqsLower : SimpleIndex<> {
   };
 };
 
-struct YearIndex {
-  static const Year MIN_YEAR = 1700;
-  static size_t idx(Year y) {assert(y >= MIN_YEAR); return y-MIN_YEAR;}
-  static Year   key(size_t i) {return i + MIN_YEAR;}
-  typedef Year Idx;
-};
-
 struct Counted : YearIndex {
-  static constexpr const char * fn = "counted.dat";
+  static constexpr auto fn = "Counted.dat";
   typedef double Row;
 };
 
-struct FreqAll : SimpleIndex<LowerId> {
-  static constexpr const char * fn = "freq_all.dat";
+enum FreqFilter {All, Recent};
+
+template <FreqFilter Filter>
+struct Freq : SimpleIndex<LowerId> {
+  static constexpr auto fn = Filter == All ? "FreqAll.dat" : "FreqRecent.dat";
   typedef float Row;
 };
 
-struct FreqRecent : SimpleIndex<LowerId> {
-  static constexpr const char * fn = "freq_recent.dat";
-  typedef float Row;
-};
+  // template <FreqFilter Filter>
+  // struct Rank : SimpleIndex<LowerId> {
+  //   static constexpr auto fn = Filter == All ? "RankAll.dat" : "RankRecent.dat";
+  //   typedef Rank Row;
+  // };
 
 
 //static inline Year year_group(Year year) {

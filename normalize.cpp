@@ -19,10 +19,10 @@ static inline int asc_islower(int c)
 int main() {
   WordBuffer word_buffer;
   word_buffer.load("words.dat");
-  Table<WordLookupById> word_lookup_by_id;
-  WordLookup buffer_lookup(word_buffer, word_lookup_by_id.begin(), word_lookup_by_id.end());
+  Table<WordLookup> word_lookup_by_id;
+  WordLookupByStr buffer_lookup(word_buffer, word_lookup_by_id.begin(), word_lookup_by_id.end());
   TableCreator<ToLower> to_lower;
-  WordLookup lower_lookup(word_buffer);
+  WordLookupByStr lower_lookup(word_buffer);
   Str lower;
   {
     const char * str = "<filtered>";
@@ -61,5 +61,5 @@ int main() {
     to_lower.append_row(lower_id);
   }
   word_buffer.save("words_w_lower.dat");
-  lower_lookup.save("lower_lookup.dat");
+  lower_lookup.save("LowerLookup.dat");
 }
