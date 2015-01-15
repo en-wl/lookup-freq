@@ -53,3 +53,7 @@ def build(bld):
 
   gen("report",
       rule="true")
+ 
+  bld(rule="sqlite3 /home/kevina/wordlist/git/scowl/scowl.db < ${SRC}",
+      source="speller-export.sql",
+      target="speller.tab")
