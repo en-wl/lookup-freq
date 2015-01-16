@@ -177,6 +177,36 @@ struct Lookup<ByWord> : SpellerLookup {};
 template <>
 struct Lookup<ByLower> : LowerLookup {};
 
+template <LookupType, YearFilter>
+struct Stats;
+
+struct StatsRow {
+  uint32_t rank; 
+  uint32_t normal_incl; 
+  uint32_t large_incl;
+};
+
+template<>
+struct Stats<Filtered,Recent> : SimpleIndex<WordId> {
+  static constexpr auto fn = "StatsRecentFiltered.dat";
+  typedef StatsRow Row;
+};
+template<>
+struct Stats<Filtered,All> : SimpleIndex<WordId> {
+  static constexpr auto fn = "StatsAllFiltered.dat";
+  typedef StatsRow Row;
+};
+template<>
+struct Stats<Lower,Recent> : SimpleIndex<LowerId> {
+  static constexpr auto fn = "StatsRecentLower.dat";
+  typedef StatsRow Row;
+};
+template<>
+struct Stats<Lower,All> : SimpleIndex<LowerId> {
+  static constexpr auto fn = "StatsAllLower.dat";
+  typedef StatsRow Row;
+};
+
 
   // template <FreqFilter Filter>
   // struct Rank : SimpleIndex<LowerId> {

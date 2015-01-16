@@ -54,7 +54,7 @@ int main() {
       for (unsigned i = 0; i < lower.size; ++i)
         lower[i] = asc_tolower(lower[i]);
     }
-    bool keep = all_of(lower.begin(), lower.end(), [](char c){return asc_islower(c);});
+    bool keep = lower.size <= 63 && all_of(lower.begin(), lower.end(), [](char c){return asc_islower(c);});
     //bool keep = lower.size > 2 
     //  && asc_islower(lower.front()) && asc_islower(lower.back()) 
     //  && all_of(lower.begin() + 1, lower.end() - 1, [](char c){return asc_islower(c) || c == '\'';});

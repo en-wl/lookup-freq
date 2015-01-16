@@ -4,7 +4,7 @@ def options(opt):
 def configure(conf):
   #conf.env.CXX = '/opt/llvm/bin/clang++'
   conf.env.CXX = '/opt/gcc/bin/g++-4.9'
-  conf.env.LINKFLAGS = '-Wl,-rpath,/opt/gcc/lib64'
+  conf.env.LINKFLAGS = ['-Wl,-rpath,/opt/gcc/lib64']
   conf.env.CXXFLAGS = ['-std=gnu++14','-Wall','-Wno-narrowing','-O2','-Wno-missing-braces']
   conf.load('compiler_cxx')
 
@@ -60,6 +60,13 @@ def build(bld):
       rule="./gather",
       source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat",
       target="FreqAllLower.dat FreqRecentLower.dat FreqAllFiltered.dat FreqRecentFiltered.dat")
+
+  gen("stats",
+      rule="./stats", 
+      source=("Speller.dat SpellerLower.dat " + 
+              "SpellerLookup.dat LowerLookup.dat words_w_lower.dat " +
+              "FreqAllFiltered.dat  FreqAllLower.dat  FreqRecentFiltered.dat  FreqRecentLower.dat "),
+      target="StatsAllFiltered.dat  StatsAllLower.dat  StatsRecentFiltered.dat  StatsRecentLower.dat")
 
   gen("report",
       rule="true")
