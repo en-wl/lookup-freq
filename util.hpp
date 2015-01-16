@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include "schema.hpp"
 
@@ -42,6 +43,16 @@ struct Str {
   bool eq(const char * b, const char * e) {return eq(b,e-b);}
 };
 
+template <typename T>
+void save_memory(const char * fn, T * start, T * stop) {
+  auto p   = reinterpret_cast<char *>(start);
+  auto end = reinterpret_cast<char *>(stop);
+  auto fd = open(fn, O_WRONLY|O_CREAT|O_TRUNC,00666);
+  while (p < end)
+    p += write(fd, p, end - p);
+  close(fd);
+}
+
 struct WordBuffer {
   char * begin;
   char * end;
@@ -60,10 +71,7 @@ struct WordBuffer {
     close(fd);
   }
   void save(const char * fn) {
-    auto fd = open(fn, O_WRONLY|O_CREAT|O_TRUNC,00666);
-    for (auto p = begin; p < end;)
-      p += write(fd, p, end - p);
-    close(fd);
+    save_memory(fn, begin, end);
   }
   char * append(Str & word) {
     assert(size() + word.size + 1 <= capacity);

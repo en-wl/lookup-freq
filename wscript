@@ -26,10 +26,25 @@ def build(bld):
       #rule="zcat /aux/ngrams/data/googlebooks-eng-all-1gram-20120701-q.gz | ./import",
       target="Freqs.dat FreqsPos.dat PosTotals.dat Totals.dat WordLookup.dat words.dat")
 
+  bld(rule="sqlite3 /home/kevina/wordlist/git/scowl/scowl.db < ${SRC}",
+      source="speller-export.sql",
+      target="speller.tab")
+
+  gen("import_speller",
+      rule="./import_speller",
+      source="WordLookup.dat words.dat speller.tab",
+      target="SpellerLookup.dat words_w_speller.dat Speller.dat")
+
   gen("normalize",
       rule="./normalize", 
-      source="WordLookup.dat words.dat",
+      #source="WordLookup.dat words.dat",
+      source="SpellerLookup.dat words_w_speller.dat",
       target="ToLower.dat LowerLookup.dat words_w_lower.dat")
+
+  gen("normalize_speller",
+      rule="./normalize_speller",
+      source="Speller.dat ToLower.dat",
+      target="SpellerLower.dat")
 
   gen("tally_freqs_excl",
       rule="./tally_freqs_excl", 
@@ -41,11 +56,6 @@ def build(bld):
       source="Freqs.dat FreqsExclude.dat ToLower.dat",
       target="FreqsFiltered.dat Counted.dat")
 
-  #gen("tally_freqs_lower",
-  #    rule="./tally_freqs_lower | tee tally_freqs_lower.log", 
-  #    source="Freqs.dat FreqsExclude.dat ToLower.dat",
-  #    target="FreqsLower.dat Counted.dat")
-  
   gen("gather",
       rule="./gather",
       source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat",
@@ -54,6 +64,5 @@ def build(bld):
   gen("report",
       rule="true")
  
-  bld(rule="sqlite3 /home/kevina/wordlist/git/scowl/scowl.db < ${SRC}",
-      source="speller-export.sql",
-      target="speller.tab")
+      
+  

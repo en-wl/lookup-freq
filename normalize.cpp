@@ -18,8 +18,8 @@ static inline int asc_islower(int c)
 
 int main() {
   WordBuffer word_buffer;
-  word_buffer.load("words.dat");
-  Table<WordLookup> word_lookup_by_id;
+  word_buffer.load("words_w_speller.dat");
+  Table<SpellerLookup> word_lookup_by_id;
   WordLookupByStr buffer_lookup(word_buffer, word_lookup_by_id.begin(), word_lookup_by_id.end());
   TableCreator<ToLower> to_lower;
   WordLookupByStr lower_lookup(word_buffer);

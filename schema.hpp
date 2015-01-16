@@ -12,6 +12,8 @@ typedef uint32_t WordId;
 typedef uint32_t LowerId;
 typedef uint16_t Year;
 
+enum LookupType {ByWord, ByLower};
+
 struct Pos {
   uint16_t id;
   bool defined() {return id != (uint16_t)-1;}
@@ -126,19 +128,55 @@ struct Counted : YearIndex {
   typedef double Row;
 };
 
+static constexpr auto Filtered = ByWord, Lower = ByLower;
 enum YearFilter {All, Recent};
 
+template <LookupType, YearFilter>
+struct Freq;
+
 template <YearFilter Filter>
-struct FreqFiltered : SimpleIndex<WordId> {
+struct Freq<Filtered,Filter> : SimpleIndex<WordId> {
   static constexpr auto fn = Filter == All ? "FreqAllFiltered.dat" : "FreqRecentFiltered.dat";
   typedef float Row;
 };
 
 template <YearFilter Filter>
-struct FreqLower : SimpleIndex<LowerId> {
+struct Freq<Lower,Filter> : SimpleIndex<LowerId> {
   static constexpr auto fn = Filter == All ? "FreqAllLower.dat" : "FreqRecentLower.dat";
   typedef float Row;
 };
+
+enum SpellerDict : uint8_t {SP_NORMAL = 1, SP_LARGE = 2, SP_NONE = 9};
+
+struct SpellerLookup : SimpleIndex<WordId> {
+  static constexpr auto fn = "SpellerLookup.dat";
+  typedef Word Row;
+};
+
+template <LookupType>
+struct Speller;
+
+template <>
+struct Speller<ByWord> : SimpleIndex<WordId> {
+  static constexpr auto fn = "Speller.dat";
+  typedef SpellerDict Row;
+};
+
+template <>
+struct Speller<ByLower> : SimpleIndex<LowerId> {
+  static constexpr auto fn = "SpellerLower.dat";
+  typedef SpellerDict Row;
+};
+
+template <LookupType>
+struct Lookup;
+
+template <>
+struct Lookup<ByWord> : SpellerLookup {};
+
+template <>
+struct Lookup<ByLower> : LowerLookup {};
+
 
   // template <FreqFilter Filter>
   // struct Rank : SimpleIndex<LowerId> {

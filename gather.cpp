@@ -34,11 +34,12 @@ int main() {
   }
   {
     Table<ToLower>     to_lower;
+    Table<WordLookup>  word_lookup;
     Table<LowerLookup> lower_lookup;
-    MutTable<FreqFiltered<All>>    filtered_all(to_lower.size());
-    MutTable<FreqFiltered<Recent>> filtered_recent(to_lower.size());
-    MutTable<FreqLower<All>>    lower_all(lower_lookup.size());
-    MutTable<FreqLower<Recent>> lower_recent(lower_lookup.size());
+    MutTable<Freq<Filtered,All>>    filtered_all(word_lookup.size());
+    MutTable<Freq<Filtered,Recent>> filtered_recent(word_lookup.size());
+    MutTable<Freq<Lower,All>>    lower_all(lower_lookup.size());
+    MutTable<Freq<Lower,Recent>> lower_recent(lower_lookup.size());
     for (auto v : freqs) {
       filtered_all[v.wid] += v.freq/denom_all.view[v.year];
       lower_all[to_lower[v.wid]] += v.freq/denom_all.view[v.year];
