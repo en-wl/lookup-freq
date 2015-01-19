@@ -22,9 +22,9 @@ size_t calaculate_length(Info<L> & info);
 template <LookupType L>
 WordInfo * populate_entry(unsigned idx, Info<L> & info, void * loc);
 
-struct ToHash {
+struct ByFreq {
   LowerId  lid;
-  unsigned hash;
+  float    freq;
 };
 
 int main() {
@@ -34,6 +34,7 @@ int main() {
   Info<Filtered> info_filtered{buffer};
   Table<FromLower> from_lower;
   vector<const char *> keys;
+  vector<ByFreq>       by_freq;
 
   printf("gathering keys...\n");
 
@@ -41,6 +42,7 @@ int main() {
     if (v.second <= 0.0) continue;
     //printf("%g\n", v.second);
     keys.push_back(info_lower.lookup[v.first].str(buffer));
+    by_freq.push_back({v.first,v.second});
   }
 
   printf("number of keys = %lu (vs %lu)\n", keys.size(), info_lower.freq.size());
@@ -76,17 +78,18 @@ int main() {
     }
   }
 
-  printf("sorting based on hash key...\n");
+  printf("sorting based on freq\n");
 
-  vector<ToHash> to_hash;
-  to_hash.reserve(keys.size());
-  for (auto v : info_lower.freq.view) {
-    if (v.second <= 0.0) continue;
-    auto key = info_lower.lookup[v.first].str(buffer);
-    unsigned id = cmph_search(hash, key, (cmph_uint32)strlen(key));
-    to_hash.push_back({v.first,id});
-  }
-  sort(to_hash.begin(), to_hash.end(), [](auto a, auto b){return a.hash < b.hash;});
+  sort(by_freq.begin(), by_freq.end(), [](auto a, auto b){return a.freq > b.freq;});
+
+  //vector<ToHash> to_hash;
+  //to_hash.reserve(keys.size());
+  //for (auto v : info_lower.freq.view) {
+  //  if (v.second <= 0.0) continue;
+  //  auto key = info_lower.lookup[v.first].str(buffer);
+  //  unsigned id = cmph_search(hash, key, (cmph_uint32)strlen(key));
+  //  to_hash.push_back({v.first,id});
+  //}
 
   printf("computing request len...\n");
 
@@ -108,8 +111,10 @@ int main() {
   vector<WordId> others;
   WordInfo * prev = NULL;
   auto p = data;
-  for (auto v : to_hash) {
-    hash_table[v.hash] = p - data;
+  for (auto v : by_freq) {
+    auto key = info_lower.lookup[v.lid].str(buffer);
+    unsigned hash_id = cmph_search(hash, key, (cmph_uint32)strlen(key));
+    hash_table[hash_id] = p - data;
     assert (p < data_end);
     auto wi = populate_entry(v.lid, info_lower, p);
     p += wi->skip;

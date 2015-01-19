@@ -52,6 +52,22 @@ struct MoreStats {
 };
 #define MORE_STATS(wi, dict) MoreStats(wi, wi->dict##_incl, spi[SpInfo::dict])
 
+class Pad {
+  char buf[64];
+public:
+  const char * operator()(const char * word, unsigned width) {
+    assert(width <= 60);
+    auto sz = strlen(word);
+    if (sz >= width) return word;
+    int pad = width - mbstowcs(NULL, word, 0);
+    memcpy(buf, word, sz);
+    for (;pad > 0;--pad)
+      buf[sz++] = ' ';
+    buf[sz] = '\0';
+    return buf;
+  };
+};
+
 int main(int argc, char *argv[]) {
   
   auto level = NORMAL;
@@ -82,23 +98,12 @@ int main(int argc, char *argv[]) {
   char * lower = NULL;
   size_t lower_capacity = 0;
 
+  Pad pad;
+
   std::vector<WordInfo *>   result;
   std::vector<const char *> filtered;
   std::vector<const char *> not_found;
 
-  char buf[64];
-  auto pad = [&buf](const char * word, unsigned width) -> const char * {
-    assert(width <= 60);
-    auto sz = strlen(word);
-    if (sz >= width) return word;
-    int pad = width - mbstowcs(NULL, word, 0);
-    memcpy(buf, word, sz);
-    for (;pad > 0;--pad)
-      buf[sz++] = ' ';
-    buf[sz] = '\0';
-    return buf;
-  };
-  
   while (getline(&line, &size, stdin) != -1) {
     char * word = line;
     while (asc_isspace(*word)) ++word;
@@ -154,7 +159,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  std::sort(result.begin(), result.end(), [](auto a, auto b){return a->freq > b->freq;});
+  std::sort(result.begin(), result.end(), [](auto a, auto b){return a < b;});
 
   if (level == NORMAL) {
     printf("Word                 |  Freq           Rank | Normal dict | Large dict\n");
