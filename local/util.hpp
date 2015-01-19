@@ -62,6 +62,7 @@ struct WordBuffer {
   WordBuffer() {begin = end = (char *)malloc(capacity);}
   void load(const char * fn) {
     auto fd = open(fn, O_RDONLY);
+    assert(fd != -1);
     struct stat st;
     fstat(fd, &st);
     end = begin + st.st_size;

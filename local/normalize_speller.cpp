@@ -18,5 +18,5 @@ int main() {
     speller_lower[lid] = min(speller_lower[lid],row.second);
   }
 
-  save_memory(Speller<Lower>::fn, &*speller_lower.begin(), &*speller_lower.end());
+  save_memory(Speller<Lower>::fn(), &*speller_lower.begin(), &*speller_lower.end());
 }

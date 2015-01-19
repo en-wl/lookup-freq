@@ -14,7 +14,9 @@ template <typename T>
 struct TableCreator {
   FILE * fd = NULL;
   TableCreator() {
-    fd = fopen(T::fn, "w");
+    fd = fopen(T::fn(), "w");
+    printf(">>%s\n", T::fn());
+    assert(fd);
   };
   TableCreator(const TableCreator &) = delete;
   TableCreator(TableCreator && other) : fd(other.fd) {other.fd=NULL;}
@@ -108,17 +110,18 @@ using TmpTable = TableLike<T, vector<typename T::Row>>;
 
 template <typename T>
 struct Table : TableLike<T, MMapVector<typename T::Row> > {
-  Table() : TableLike<T, MMapVector<typename T::Row> >(T::fn) {}
+  Table() : TableLike<T, MMapVector<typename T::Row> >(T::fn()) {}
 };
 
 template <typename T>
 struct MutTable : TableLike<T, MutMMapVector<typename T::Row> > {
-  MutTable() : TableLike<T, MutMMapVector<typename T::Row> >(T::fn) {}
-  MutTable(size_t sz) : TableLike<T, MutMMapVector<typename T::Row> >(T::fn, sz) {}
+  MutTable() : TableLike<T, MutMMapVector<typename T::Row> >(T::fn()) {}
+  MutTable(size_t sz) : TableLike<T, MutMMapVector<typename T::Row> >(T::fn(), sz) {}
 };
 
 template <typename T, class Key, class Merge>
 void merge(MutTable<T> & tbl, Key key, Merge merge) {
+  if (tbl.size() == 0) return;
   sort(tbl.begin(), tbl.end(), [key](auto a, auto b){return key(a) < key(b);});
   auto p = tbl.begin();
   for (auto i = tbl.begin() + 1; i < tbl.end(); ++i) {

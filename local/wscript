@@ -14,8 +14,6 @@ def noop(tsk):
 def build(bld):
   bld.objects(source="common.cpp", target="common")
 
-  bld.program(use="common", source="dump.cpp", target="dump")
-
   def gen(prog, **args):
       bld.program(use="common", source=prog+".cpp", target=prog)
       bld(name="do-"+prog, source=prog, rule = noop)
@@ -41,6 +39,8 @@ def build(bld):
       source="SpellerLookup.dat words_w_speller.dat",
       target="ToLower.dat LowerLookup.dat words_w_lower.dat")
 
+  gen("from_lower", rule="./from_lower", source="ToLower.dat", target="FromLower.dat")
+
   gen("normalize_speller",
       rule="./normalize_speller",
       source="Speller.dat ToLower.dat",
@@ -58,7 +58,7 @@ def build(bld):
 
   gen("gather",
       rule="./gather",
-      source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat",
+      source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat SpellerLookup.dat",
       target="FreqAllLower.dat FreqRecentLower.dat FreqAllFiltered.dat FreqRecentFiltered.dat")
 
   gen("stats",
@@ -68,8 +68,16 @@ def build(bld):
               "FreqAllFiltered.dat  FreqAllLower.dat  FreqRecentFiltered.dat  FreqRecentLower.dat "),
       target="StatsAllFiltered.dat  StatsAllLower.dat  StatsRecentFiltered.dat  StatsRecentLower.dat")
 
-  gen("report",
-      rule="true")
- 
+  #gen("for-vps",
+  #     rule="true")
+  bld.program(use="common", source="for-vps.cpp", target="for-vps", 
+              includes='/aux/ngrams/cxx/cmph/include',
+              lib='cmph', libpath='/aux/ngrams/cxx/cmph/lib/',rpath='/aux/ngrams/cxx/cmph/lib/')
+
+  bld.program(use="common", source="lookup.cpp", target="lookup", 
+              includes='/aux/ngrams/cxx/cmph/include',
+              lib='cmph', libpath='/aux/ngrams/cxx/cmph/lib/',rpath='/aux/ngrams/cxx/cmph/lib/')
+
+  bld.program(use="common", source="dump.cpp", target="dump");
       
   

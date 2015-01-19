@@ -33,11 +33,11 @@ int main() {
     }
   }
   {
-    Table<ToLower>     to_lower;
-    Table<WordLookup>  word_lookup;
-    Table<LowerLookup> lower_lookup;
-    MutTable<Freq<Filtered,All>>    filtered_all(word_lookup.size());
-    MutTable<Freq<Filtered,Recent>> filtered_recent(word_lookup.size());
+    Table<ToLower>       to_lower;
+    Table<SpellerLookup> speller_lookup;
+    Table<LowerLookup>   lower_lookup;
+    MutTable<Freq<Filtered,All>>    filtered_all(speller_lookup.size());
+    MutTable<Freq<Filtered,Recent>> filtered_recent(speller_lookup.size());
     MutTable<Freq<Lower,All>>    lower_all(lower_lookup.size());
     MutTable<Freq<Lower,Recent>> lower_recent(lower_lookup.size());
     for (auto v : freqs) {

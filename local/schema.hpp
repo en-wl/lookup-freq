@@ -1,6 +1,13 @@
 #ifndef schema__hpp
 #define schema__hpp
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include <math.h>
+
 #include <assert.h>
 #include <string.h>
 
@@ -53,23 +60,33 @@ struct YearIndex {
   typedef Year Idx;
 };
 
+#define FILE_NAME(f) static const char * fn() {return f;}
+
 struct WordLookup : SimpleIndex<WordId> {
-  static constexpr auto fn = "WordLookup.dat";
+  FILE_NAME("WordLookup.dat");
   typedef Word Row;
 };
 
 struct ToLower : SimpleIndex<WordId> {
-  static constexpr auto fn = "ToLower.dat";
+  FILE_NAME("ToLower.dat");
   typedef LowerId Row;
 };
 
+struct FromLower : SimpleIndex<> {
+  FILE_NAME("FromLower.dat");
+  struct Row {
+    LowerId lid;
+    WordId  wid;
+  };
+};
+
 struct LowerLookup : SimpleIndex<LowerId> {
-  static constexpr auto fn = "LowerLookup.dat";
+  FILE_NAME("LowerLookup.dat");
   typedef Word Row;
 };
 
 struct Freqs : SimpleIndex<> {
-  static constexpr auto fn = "Freqs.dat";
+  FILE_NAME("Freqs.dat");
   struct Row {
     WordId wid;
     Year   year;
@@ -78,7 +95,7 @@ struct Freqs : SimpleIndex<> {
 };
 
 struct FreqsPos : SimpleIndex<> {
-  static constexpr auto fn = "FreqsPos.dat";
+  FILE_NAME("FreqsPos.dat");
   struct Row {
     WordId wid;
     Pos    pos;
@@ -88,7 +105,7 @@ struct FreqsPos : SimpleIndex<> {
 };
 
 struct PosTotals : SimpleIndex<> {
-  static constexpr auto fn = "PosTotals.dat";
+  FILE_NAME("PosTotals.dat");
   struct Row {
     Year   year;
     Pos    pos;
@@ -97,7 +114,7 @@ struct PosTotals : SimpleIndex<> {
 };
 
 struct Totals : SimpleIndex<> {
-  static constexpr auto fn = "Totals.dat";
+  FILE_NAME("Totals.dat");
   struct Row {
     Year   year;
     double freq;
@@ -105,17 +122,17 @@ struct Totals : SimpleIndex<> {
 };
 
 struct FreqsExclude : SimpleIndex<> {
-  static constexpr auto fn = "FreqsExclude.dat";
+  FILE_NAME("FreqsExclude.dat");
   using Row = Freqs::Row;
 };
 
 struct FreqsFiltered : SimpleIndex<> {
-  static constexpr auto fn = "FreqsFiltered.dat";
+  FILE_NAME("FreqsFiltered.dat");
   using Row = Freqs::Row;
 };
 
 struct FreqsLower : SimpleIndex<> {
-  static constexpr auto fn = "FreqsLower.dat";
+  FILE_NAME("FreqsLower.dat");
   struct Row {
     LowerId lid;
     Year    year;
@@ -124,7 +141,7 @@ struct FreqsLower : SimpleIndex<> {
 };
 
 struct Counted : YearIndex {
-  static constexpr auto fn = "Counted.dat";
+  FILE_NAME("Counted.dat");
   typedef double Row;
 };
 
@@ -136,20 +153,20 @@ struct Freq;
 
 template <YearFilter Filter>
 struct Freq<Filtered,Filter> : SimpleIndex<WordId> {
-  static constexpr auto fn = Filter == All ? "FreqAllFiltered.dat" : "FreqRecentFiltered.dat";
+  FILE_NAME(Filter == All ? "FreqAllFiltered.dat" : "FreqRecentFiltered.dat");
   typedef float Row;
 };
 
 template <YearFilter Filter>
 struct Freq<Lower,Filter> : SimpleIndex<LowerId> {
-  static constexpr auto fn = Filter == All ? "FreqAllLower.dat" : "FreqRecentLower.dat";
+  FILE_NAME(Filter == All ? "FreqAllLower.dat" : "FreqRecentLower.dat");
   typedef float Row;
 };
 
 enum SpellerDict : uint8_t {SP_NORMAL = 1, SP_LARGE = 2, SP_NONE = 9};
 
 struct SpellerLookup : SimpleIndex<WordId> {
-  static constexpr auto fn = "SpellerLookup.dat";
+  FILE_NAME("SpellerLookup.dat");
   typedef Word Row;
 };
 
@@ -158,13 +175,13 @@ struct Speller;
 
 template <>
 struct Speller<ByWord> : SimpleIndex<WordId> {
-  static constexpr auto fn = "Speller.dat";
+  FILE_NAME("Speller.dat");
   typedef SpellerDict Row;
 };
 
 template <>
 struct Speller<ByLower> : SimpleIndex<LowerId> {
-  static constexpr auto fn = "SpellerLower.dat";
+  FILE_NAME("SpellerLower.dat");
   typedef SpellerDict Row;
 };
 
@@ -188,29 +205,69 @@ struct StatsRow {
 
 template<>
 struct Stats<Filtered,Recent> : SimpleIndex<WordId> {
-  static constexpr auto fn = "StatsRecentFiltered.dat";
+  FILE_NAME("StatsRecentFiltered.dat");
   typedef StatsRow Row;
 };
 template<>
 struct Stats<Filtered,All> : SimpleIndex<WordId> {
-  static constexpr auto fn = "StatsAllFiltered.dat";
+  FILE_NAME("StatsAllFiltered.dat");
   typedef StatsRow Row;
 };
 template<>
 struct Stats<Lower,Recent> : SimpleIndex<LowerId> {
-  static constexpr auto fn = "StatsRecentLower.dat";
+  FILE_NAME("StatsRecentLower.dat");
   typedef StatsRow Row;
 };
 template<>
 struct Stats<Lower,All> : SimpleIndex<LowerId> {
-  static constexpr auto fn = "StatsAllLower.dat";
+  FILE_NAME("StatsAllLower.dat");
   typedef StatsRow Row;
 };
 
+struct RankFreq {
+  unsigned rank = -1;
+  float    freq = NAN;
+  RankFreq() {}
+  RankFreq(unsigned r) : rank(r) {}
+};
+
+struct DictionaryStats {
+  RankFreq in_corpus;
+  RankFreq non_filtered;
+  RankFreq total;
+  DictionaryStats() {}
+  DictionaryStats(unsigned nf, unsigned t) 
+    : non_filtered{nf}, total{t} {}
+};
+
+struct SpellerStats {
+  DictionaryStats normal,large;
+  template<LookupType L, YearFilter F>
+  static std::string fn() {
+    string res;
+    res += "Speller";
+    res += Stats<L,F>::fn();
+    return res;
+  }
+  template<LookupType L, YearFilter F>
+  void save() {
+    auto fd = open(fn<L,F>().c_str(), O_WRONLY|O_CREAT|O_TRUNC, 0666);
+    write(fd, this, sizeof(SpellerStats));
+    close(fd);
+  }
+  template<LookupType L, YearFilter F>
+  void load() {
+    auto fd = open(fn<L,F>().c_str(), O_RDONLY);
+    assert(fd != -1);
+    auto res = read(fd, this, sizeof(SpellerStats));
+    assert(res == sizeof(SpellerStats));
+    close(fd);
+  }
+};
 
   // template <FreqFilter Filter>
   // struct Rank : SimpleIndex<LowerId> {
-  //   static constexpr auto fn = Filter == All ? "RankAll.dat" : "RankRecent.dat";
+  //   FILE_NAME(Filter == All ? "RankAll.dat" : "RankRecent.dat";
   //   typedef Rank Row;
   // };
 

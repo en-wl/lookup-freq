@@ -35,8 +35,8 @@ int main() {
     assert(speller[spi.word_id] == SP_NONE);
     speller[spi.word_id] = static_cast<SpellerDict>(spi.onum);
   }
-  save_memory(Speller<ByWord>::fn, &*speller.begin(), &*speller.end());
+  save_memory(Speller<ByWord>::fn(), &*speller.begin(), &*speller.end());
   word_buffer.save("words_w_speller.dat");
-  buffer_lookup.save(SpellerLookup::fn);
+  buffer_lookup.save(SpellerLookup::fn());
 };
 
