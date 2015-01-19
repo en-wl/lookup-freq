@@ -23,6 +23,9 @@ struct MMapVector {
   size_t len;
   MMapVector(const char * fn, int advice = MADV_SEQUENTIAL) {
     fd = open(fn, O_RDONLY | O_NOATIME);
+    if (fd == -1)
+      fd = open(fn, O_RDONLY);
+    if (fd == -1) {perror("MMapVector open"); abort();}  
     struct stat st;
     fstat(fd, &st);
     len = st.st_size;

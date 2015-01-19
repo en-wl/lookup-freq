@@ -25,7 +25,7 @@ struct Normalize {
       *out = '\0';
       return out - res;
     }();
-    for (unsigned i = 0; i < res_size; ++i)
+    for (int i = 0; i < res_size; ++i)
       res[i] = asc_tolower(res[i]);
     bool keep = res_size <= 60 && std::all_of(res, res+res_size, [](char c){return asc_islower(c);});
     //bool keep = lower.size > 2 
