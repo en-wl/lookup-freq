@@ -70,14 +70,29 @@ def build(bld):
 
   #gen("for-vps",
   #     rule="true")
-  bld.program(use="common", source="for-vps.cpp", target="for-vps", 
-              includes='/aux/ngrams/cxx/cmph/include',
-              lib='cmph', libpath='/aux/ngrams/cxx/cmph/lib/',rpath='/aux/ngrams/cxx/cmph/lib/')
 
-  bld.program(use="common", source="lookup.cpp", target="lookup", 
-              includes='/aux/ngrams/cxx/cmph/include',
-              lib='cmph', libpath='/aux/ngrams/cxx/cmph/lib/',rpath='/aux/ngrams/cxx/cmph/lib/')
+  def forVps(prog, lib = [], **args):
+      lib.append('cmph')
+      bld.program(source=prog+".cpp", target=prog,
+                  includes='/aux/ngrams/cxx/cmph/include',
+                  lib=lib, libpath='/aux/ngrams/cxx/cmph/lib/',
+                  rpath='/aux/ngrams/cxx/cmph/lib/',
+                  **args)
+
+  forVps("for-vps", use="common")
+  forVps("lookup")
+  forVps("spell", lib=['aspell'])
 
   bld.program(use="common", source="dump.cpp", target="dump");
+
+  bld.program(use="common", source="newness.cpp", target="newness");
+
+  gen("words_lower",
+      rule = "./words_lower > words_lower.txt",
+      source="LowerLookup.dat words_w_lower.dat",
+      target="words_lower.txt")
+
+  bld(rule="cp /aux/ngrams/aspell/myen.dat /aux/ngrams/aspell/myen_phonet.dat . && aspell create master -l myen ./en-lower.rws < words_lower.txt",
+      source="words_lower.txt", target="en-lower.rws")
       
-  
+  bld.program(use="common", source="matchup.cpp", target="matchup")
