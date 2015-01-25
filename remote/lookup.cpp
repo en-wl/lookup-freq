@@ -5,8 +5,6 @@
 #include <locale.h>
 #include <math.h>
 
-#include <cmph.h>
-
 #include <vector>
 #include <algorithm>
 
@@ -14,6 +12,7 @@
 #include "mmap_vector.hpp"
 #include "normalize.hpp"
 #include "schema.hpp"
+#include "lookup.hpp"
 
 static inline bool asc_isspace(char c) {return c == ' ' || c == '\t' || c == '\n';}
 
@@ -69,6 +68,13 @@ public:
 };
 
 int main(int argc, char *argv[]) {
+  setlocale (LC_ALL, "en_US.UTF-8");
+  //sp.load<Lower,Recent>();
+  WordInfoLookup lookup;
+  SpellerStats sp;
+  sp.load<Lower,Current>();
+  SpInfo spi[2] = {{sp.normal.non_filtered.freq, sp.normal.non_filtered.rank, 0},
+                   {sp.large.non_filtered.freq, sp.large.non_filtered.rank, 1}};
   
   auto level = NORMAL;
   if      (argc >= 2 && strcmp(argv[1], "brief") == 0)  level = BRIEF;
@@ -88,24 +94,8 @@ int main(int argc, char *argv[]) {
     setlinebuf(stdout);
   }
 
-  MMapVector<uint32_t> table("ngrams.tbl", MADV_RANDOM);
-  MMapVector<char>     data("ngrams.dat", MADV_RANDOM);
-  SpellerStats         sp;
-  sp.load<Lower,Recent>();
-  SpInfo spi[2] = {{sp.normal.non_filtered.freq, sp.normal.non_filtered.rank, 0},
-                   {sp.large.non_filtered.freq, sp.large.non_filtered.rank, 1}};
-
-  auto mphf_fd = fopen("ngrams.mph", "r");
-  assert(mphf_fd);
-  auto hash = cmph_load(mphf_fd);
-
-  setlocale (LC_ALL, "en_US.UTF-8");
-  Normalize normalize;
-
   char * line = NULL;
   size_t size = 0;
-  char * lower = NULL;
-  size_t lower_capacity = 0;
 
   Pad pad;
 
@@ -120,51 +110,30 @@ int main(int argc, char *argv[]) {
     while (word_size > 0 && asc_isspace(word[word_size-1])) --word_size;
     word[word_size] = '\0';
 
-    if (lower_capacity < word_size + 1) {
-      lower_capacity = word_size + 1;
-      lower = (char *)realloc(lower, lower_capacity);
-    }
-    auto res = normalize(word, word_size, lower);
-    if (res <= 0) {
+    WordInfo * i = lookup(word, word_size);
+
+    if (!i && lookup.filtered) {
       if (level == BRIEF) {
         printf("%s |              |       |\n", pad(word,20));
       } else {
         filtered.push_back(word);
         line = NULL;
       }
-      continue;
-    }
-
-    auto id = cmph_search(hash, lower, res);
-    auto pos = table[id];
-
-    auto handle_not_found = [&](){
+    } else if (!i) {
       if (level == BRIEF) {
         printf("%s |       0      | %-5s | %-5s\n", pad(word,20), "*", "*");
       } else {
         not_found.push_back(word);
         line = NULL;
       }
-    };
-
-    if (pos == (uint32_t)-1) {
-      handle_not_found();
-      continue;
-    }
-
-    auto i = (WordInfo *)&data[pos];
-
-    if (strcmp(i->word, lower) != 0) {
-      handle_not_found();
-      continue;
-    }
-
-    if (level == BRIEF) {
-      printf("%s | %'12.4f | %-5s | %-5s\n", pad(word,20), 
-             i->freq*1e6,
-             MORE_STATS(i, normal).score, MORE_STATS(i, large).score);
     } else {
-      result.push_back(i);
+      if (level == BRIEF) {
+        printf("%s | %'12.4f | %-5s | %-5s\n", pad(word,20), 
+               i->freq*1e6,
+               MORE_STATS(i, normal).score, MORE_STATS(i, large).score);
+      } else {
+        result.push_back(i);
+      }
     }
   }
 
@@ -215,7 +184,7 @@ int main(int argc, char *argv[]) {
 
   if (do_report) {
 
-    char * pos = data.data;
+    char * pos = lookup.data.data;
     FILE * devnull = fopen("/dev/null", "w");
     write_header(stdout);
     for (;;) {
@@ -224,7 +193,7 @@ int main(int argc, char *argv[]) {
           else return devnull;
         });
       pos += reinterpret_cast<WordInfo *>(pos)->skip;
-      if (pos == data.end()) break;
+      if (pos == lookup.data.end()) break;
     }
 
   } else {
