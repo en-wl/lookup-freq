@@ -1,3 +1,6 @@
+#ifndef NORMALIZE__HPP
+#define NORMALIZE__HPP
+
 #include <algorithm>
 #include <iconv.h>
 
@@ -34,3 +37,5 @@ struct Normalize {
     return keep ? res_size : -res_size;
   }
 };
+
+#endif

@@ -1,9 +1,14 @@
+#ifndef MMAP_VECTOR__HPP
+#define MMAP_VECTOR__HPP
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 template <typename T>
 struct MMapVector {
@@ -87,3 +92,5 @@ struct MutMMapVector {
     close(fd);
   }
 };
+
+#endif
