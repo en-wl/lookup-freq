@@ -77,6 +77,8 @@ struct SpellerCount {
 
 int main() {
   SpellerCount normal(SP_NORMAL), large(SP_LARGE);
+  stats<Lower,Current>(SpellerStats{{normal.lower,normal.total},{large.lower,large.total}});
+  stats<Filtered,Current>(SpellerStats{{normal.filtered,normal.total},{large.filtered,large.total}});
   stats<Lower,Recent>(SpellerStats{{normal.lower,normal.total},{large.lower,large.total}});
   stats<Filtered,Recent>(SpellerStats{{normal.filtered,normal.total},{large.filtered,large.total}});
   stats<Lower,All>(SpellerStats{{normal.lower,normal.total},{large.lower,large.total}});
