@@ -141,13 +141,13 @@ int main(int argc, char *argv[]) {
 
   auto write_header = [&](FILE * out) {
     if (level == NORMAL) {
-      fprintf(out, "Word                 |  Freq           Rank | Normal dict | Large dict\n");
-      fprintf(out, "                     |  (per million)       | should incl | should incl\n");
-      fprintf(out, "---------------------|----------------------|-------------|-------------\n");
+      fprintf(out, "Word                 |  Adj. Freq   Newness Rank | Normal dict | Large dict\n");
+      fprintf(out, "                     |  (per million)            | should incl | should incl\n");
+      fprintf(out, "---------------------|---------------------------|-------------|-------------\n");
     } else if (level == FULL) {
-      fprintf(out, "Word                 |  Freq           Rank |     Normal dictionary stats       |     Large dictionary stats\n");
-      fprintf(out, "                     |  (per million)       | F Score  Dist Coverg Positn  Incl | F Score  Dist Coverg Positn  Incl\n");
-      fprintf(out, "---------------------|----------------------|-----------------------------------|-----------------------------------\n");
+      fprintf(out, "Word                 |  Adj. Freq   Newness Rank |     Normal dictionary stats       |     Large dictionary stats\n");
+      fprintf(out, "                     |  (per million)            | F Score  Dist Coverg Positn  Incl | F Score  Dist Coverg Positn  Incl\n");
+      fprintf(out, "---------------------|---------------------------|-----------------------------------|-----------------------------------\n");
     }
   };
   auto use_stdout = [](auto wi, auto normal, auto large){return stdout;};
@@ -157,27 +157,29 @@ int main(int argc, char *argv[]) {
     auto large  = MORE_STATS(i, large);
     auto out = outf(i,normal,large);
     if (level == NORMAL)
-      fprintf(out, "%-20s | %'12.4f %7u |    %-5s    |    %-5s\n", 
-              i->word, i->freq*1e6, i->rank, normal.found_or_score(), large.found_or_score());
+      fprintf(out, "%-20s | %'12.4f %4.1f %7u |    %-5s    |    %-5s\n", 
+              i->word, i->freq*1e6, i->newness, i->rank, normal.found_or_score(), large.found_or_score());
     else
-      fprintf(out, "%-20s | %'12.4f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
-              i->word, i->freq*1e6, i->rank,
+      fprintf(out, "%-20s | %'12.4f %4.1f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
+              i->word, i->freq*1e6, i->newness, i->rank,
               normal.found ? 'Y' : '-', normal.score, normal.diff, normal.rank_per, normal.total_per, i->normal_incl,
               large.found ? 'Y' : '-', large.score, large.diff, large.rank_per, large.total_per, i->large_incl);
 
-    auto lower = i; 
+    pos += i->skip;
     
-    while (level >= NORMAL && i->more) {
-      pos += i->skip;
-      i = (WordInfo *)pos;
-      auto freq_per = 100*i->freq/lower->freq;
+    bool more = true;
+    for (OrigWordInfo * i = NULL;more && level >= NORMAL;) {
+      i = (OrigWordInfo *)pos;
+      auto freq_per = i->percent;
       if (freq_per > 1.0) {
         fprintf(out,"  %s | %3.0f%%", pad(i->word, 18), freq_per);
         if (level == NORMAL)
-          fprintf(out,"                 |             |\n");
+          fprintf(out,"                      |             |\n");
         else
-          fprintf(out,"                 |                                   |\n");
+          fprintf(out,"                      |                                   |\n");
       }
+      more = i->more;
+      pos += i->skip;
     }
     return pos;
   };
@@ -192,7 +194,6 @@ int main(int argc, char *argv[]) {
           if (strlen(large.score) >= 3 && (with_incl || !normal.found)) return stdout;
           else return devnull;
         });
-      pos += reinterpret_cast<WordInfo *>(pos)->skip;
       if (pos == lookup.data.end()) break;
     }
 
@@ -210,17 +211,17 @@ int main(int argc, char *argv[]) {
 
     for (auto str : not_found) {
       if (level == NORMAL)
-        printf("%s |       0              |    *        |    *\n", pad(str, 20));
+        printf("%s |       0                   |    *        |    *\n", pad(str, 20));
       else
-        printf("%s |       0              |   *                               |   *\n",
+        printf("%s |       0                   |   *                               |   *\n",
                pad(str,20));
     }
 
     for (auto str : filtered) {
       if (level == NORMAL)
-        printf("%s |   <FILTERED>         |             |\n", pad(str, 20));
+        printf("%s |   <FILTERED>              |             |\n", pad(str, 20));
       else
-        printf("%s |   <FILTERED>         |                                   |\n",
+        printf("%s |   <FILTERED>              |                                   |\n",
                pad(str,20));
     }
 

@@ -61,12 +61,17 @@ def build(bld):
       source="FreqsFiltered.dat Counted.dat ToLower.dat LowerLookup.dat SpellerLookup.dat",
       target="FreqAllLower.dat FreqRecentLower.dat FreqCurrentLower.dat FreqAllFiltered.dat FreqRecentFiltered.dat FreqCurrentFiltered.dat")
 
+  gen("adjusted",
+      rule="./adjusted",
+      source="FreqRecentLower.dat FreqCurrentLower.dat",
+      target="FreqAdjustedLower.dat")
+
   gen("stats",
       rule="./stats", 
       source=("Speller.dat SpellerLower.dat " + 
               "SpellerLookup.dat LowerLookup.dat words_w_lower.dat " +
-              "FreqAllFiltered.dat  FreqAllLower.dat  FreqRecentFiltered.dat  FreqRecentLower.dat FreqCurrentFiltered.dat  FreqCurrentLower.dat "),
-      target="StatsAllFiltered.dat  StatsAllLower.dat  StatsRecentFiltered.dat  StatsRecentLower.dat StatsCurrentFiltered.dat  StatsCurrentLower.dat")
+              "FreqAllFiltered.dat  FreqAllLower.dat  FreqRecentFiltered.dat  FreqRecentLower.dat FreqCurrentFiltered.dat  FreqCurrentLower.dat FreqAdjustedLower.dat"),
+      target="StatsAllFiltered.dat  StatsAllLower.dat  StatsRecentFiltered.dat  StatsRecentLower.dat StatsCurrentFiltered.dat  StatsCurrentLower.dat StatsAdjustedLower.dat")
 
   #gen("for-vps",
   #     rule="true")

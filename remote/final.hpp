@@ -2,7 +2,8 @@
 #define final__hpp
 
 struct WordInfo {
-  float    freq;
+  float freq;
+  float newness;
   struct {
     unsigned rank : 28;
     unsigned dict : 2; // 0 = normal, 1 = large, 2 = reserved, 3 = none
@@ -13,6 +14,15 @@ struct WordInfo {
     unsigned more : 1; // if there are more words within the same category that follow
   } ;
   char word[]; // note, maxium word size = 60 
-} ;
+};
+
+struct OrigWordInfo {
+  float percent;
+  struct {
+    unsigned skip : 7;
+    unsigned more : 1;
+  } __attribute__((packed));
+  char  word[];
+} __attribute__((packed));
 
 #endif

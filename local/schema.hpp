@@ -146,20 +146,27 @@ struct Counted : YearIndex {
 };
 
 static constexpr auto Filtered = ByWord, Lower = ByLower;
-enum YearFilter {All, Recent, Current};
+enum YearFilter {All, Recent, Current, Adjusted};
 
 template <LookupType, YearFilter>
 struct Freq;
 
 template <YearFilter Filter>
 struct Freq<Filtered,Filter> : SimpleIndex<WordId> {
-  FILE_NAME(Filter == All ? "FreqAllFiltered.dat" : Filter == Recent ? "FreqRecentFiltered.dat" : "FreqCurrentFiltered.dat");
+  FILE_NAME(Filter == All ? "FreqAllFiltered.dat" : 
+            Filter == Recent ? "FreqRecentFiltered.dat" : 
+            Filter == Current ? "FreqCurrentFiltered.dat" :
+            NULL);
   typedef float Row;
 };
 
 template <YearFilter Filter>
 struct Freq<Lower,Filter> : SimpleIndex<LowerId> {
-  FILE_NAME(Filter == All ? "FreqAllLower.dat" :  Filter == Recent ? "FreqRecentLower.dat" : "FreqCurrentLower.dat" );
+  FILE_NAME(Filter == All ? "FreqAllLower.dat" :  
+            Filter == Recent ? "FreqRecentLower.dat" :
+            Filter == Current ? "FreqCurrentLower.dat" :
+            Filter == Adjusted ? "FreqAdjustedLower.dat" :
+            NULL);
   typedef float Row;
 };
 
@@ -231,6 +238,11 @@ struct Stats<Lower,Recent> : SimpleIndex<LowerId> {
 template<>
 struct Stats<Lower,All> : SimpleIndex<LowerId> {
   FILE_NAME("StatsAllLower.dat");
+  typedef StatsRow Row;
+};
+template<>
+struct Stats<Lower,Adjusted> : SimpleIndex<LowerId> {
+  FILE_NAME("StatsAdjustedLower.dat");
   typedef StatsRow Row;
 };
 
