@@ -5,6 +5,8 @@
 #include <locale.h>
 #include <math.h>
 
+#include <aspell.h>
+
 #include <vector>
 #include <algorithm>
 
@@ -77,9 +79,13 @@ int main(int argc, char *argv[]) {
                    {sp.large.non_filtered.freq, sp.large.non_filtered.rank, 1}};
   
   auto level = NORMAL;
-  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)  level = BRIEF;
-  else if (argc >= 2 && strcmp(argv[1], "normal") == 0) level = NORMAL;
-  else if (argc >= 2 && strcmp(argv[1], "full") == 0)   level = FULL;
+  bool spell_check = false;
+  unsigned check_limit = 1000;
+  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)        {level = BRIEF;}
+  else if (argc >= 2 && strcmp(argv[1], "normal") == 0)       {}
+  else if (argc >= 2 && strcmp(argv[1], "similar") == 0)      {spell_check = true;}
+  else if (argc >= 2 && strcmp(argv[1], "full") == 0)         {level = FULL;}
+  else if (argc >= 2 && strcmp(argv[1], "full-similar") == 0) {level = FULL; spell_check = true;}
 
   bool do_report = false;
   bool with_incl = true;
@@ -88,6 +94,22 @@ int main(int argc, char *argv[]) {
   if (do_report && level == BRIEF) {
     fprintf(stderr, "Can not crete a 'brief' report.\n");
     exit(1);
+  }
+
+  AspellSpeller * spell_checker = 0;
+  vector<WordInfo *> sugs;
+  if (spell_check) {
+    AspellConfig * spell_config = new_aspell_config();
+    aspell_config_replace(spell_config, "master", "./en-lower.rws");
+    aspell_config_replace(spell_config, "sug-mode", "ultra");
+    AspellCanHaveError * possible_err = new_aspell_speller(spell_config);
+    
+    if (aspell_error_number(possible_err) != 0) {
+      fprintf(stderr, "%s\n", aspell_error_message(possible_err));
+      return 1;
+    } else {
+      spell_checker = to_aspell_speller(possible_err);
+    }
   }
 
   if (level == BRIEF) {
@@ -150,20 +172,28 @@ int main(int argc, char *argv[]) {
       fprintf(out, "---------------------|---------------------------|-----------------------------------|-----------------------------------\n");
     }
   };
-  auto use_stdout = [](auto wi, auto normal, auto large){return stdout;};
-  auto write_entry = [&](char * pos, auto outf) {
-    auto i = (WordInfo *)pos;
+  FILE * devnull = fopen("/dev/null", "w");
+  unsigned checked=0;
+  auto use_ = [](auto out){return [out](auto wi, auto normal, auto large){return out;};};
+  auto use_stdout = use_(stdout);
+  auto write_line = [&](auto outf, auto first_part, auto i) {
     auto normal = MORE_STATS(i, normal);
     auto large  = MORE_STATS(i, large);
     auto out = outf(i,normal,large);
-    if (level == NORMAL)
-      fprintf(out, "%-20s | %'12.4f %4.1f %7u |    %-5s    |    %-5s\n", 
-              i->word, i->freq*1e6, i->newness, i->rank, normal.found_or_score(), large.found_or_score());
+    first_part(out);
+    if (level == NORMAL) 
+      fprintf(out, "%4.1f %7u |    %-5s    |    %-5s\n", 
+              i->newness, i->rank, normal.found_or_score(), large.found_or_score());
     else
-      fprintf(out, "%-20s | %'12.4f %4.1f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
-              i->word, i->freq*1e6, i->newness, i->rank,
+      fprintf(out, "%4.1f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
+              i->newness, i->rank,
               normal.found ? 'Y' : '-', normal.score, normal.diff, normal.rank_per, normal.total_per, i->normal_incl,
               large.found ? 'Y' : '-', large.score, large.diff, large.rank_per, large.total_per, i->large_incl);
+    return out;
+  };
+  auto write_entry = [&](char * pos, auto outf) {
+    auto i = (WordInfo *)pos;
+    auto out = write_line(outf, [&](auto out){fprintf(out, "%-20s | %'12.4f ", i->word, i->freq*1e6);}, i);
 
     pos += i->skip;
     
@@ -171,7 +201,7 @@ int main(int argc, char *argv[]) {
     for (OrigWordInfo * i = NULL;more && level >= NORMAL;) {
       i = (OrigWordInfo *)pos;
       auto freq_per = i->percent;
-      if (freq_per > 1.0) {
+      if (!spell_check && freq_per > 1.0) {
         fprintf(out,"  %s | %3.0f%%", pad(i->word, 18), freq_per);
         if (level == NORMAL)
           fprintf(out,"                      |             |\n");
@@ -181,17 +211,43 @@ int main(int argc, char *argv[]) {
       more = i->more;
       pos += i->skip;
     }
+    if (spell_check && out != devnull && checked <= check_limit) {
+      checked++;
+      const AspellWordList * suggestions = aspell_speller_suggest(spell_checker,
+                                                                  i->word, strlen(i->word));
+      AspellStringEnumeration * elements = aspell_word_list_elements(suggestions);
+      sugs.clear();
+      aspell_string_enumeration_next(elements);
+      const char * sug;
+      while ( (sug = aspell_string_enumeration_next(elements)) != NULL )
+      {
+        if (strcmp(i->word, sug)==0) continue;
+        auto sz = strcspn(sug, " -");
+        if (sug[sz] != '\0') continue;
+        auto j = lookup(sug, sz);
+        if (j)
+        sugs.push_back(&*j);
+      }
+      sort(sugs.begin(), sugs.end(), [](auto a, auto b){return a->freq > b->freq;});
+
+      for (auto wi : sugs) {
+        float ratio = wi->freq/i->freq;
+        if (ratio >= 0.5) {
+          write_line(use_(out), [&](auto out){fprintf(out,"  %-18s |%'9.1fx    ", wi->word, ratio);}, wi);
+        }
+      }
+      fprintf(out, "\n");
+    }
     return pos;
   };
 
   if (do_report) {
 
     char * pos = lookup.data.data;
-    FILE * devnull = fopen("/dev/null", "w");
     write_header(stdout);
     for (;;) {
       pos = write_entry(pos, [&](auto wi, auto normal, auto large){
-          if (strlen(large.score) >= 3 && (with_incl || !normal.found)) return stdout;
+          if (strlen(large.score) >= 4 && (with_incl || !normal.found)) return stdout;
           else return devnull;
         });
       if (pos == lookup.data.end()) break;

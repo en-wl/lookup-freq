@@ -85,7 +85,7 @@ def build(bld):
                   **args)
 
   forVps("for-vps", use="common")
-  forVps("lookup")
+  forVps("lookup", lib=['aspell'])
   forVps("spell", lib=['aspell'])
 
   bld.program(use="common", source="dump.cpp", target="dump");
@@ -97,7 +97,10 @@ def build(bld):
       source="LowerLookup.dat words_w_lower.dat",
       target="words_lower.txt")
 
-  bld(rule="cp /aux/ngrams/aspell/myen.dat /aux/ngrams/aspell/myen_phonet.dat . && aspell create master -l myen ./en-lower.rws < words_lower.txt",
-      source="words_lower.txt", target="en-lower.rws")
+  bld(rule="cp /aux/ngrams/aspell/myen.dat /aux/ngrams/aspell/myen_phonet.dat .",
+      target="myen.dat myen_phonet.dat")
+
+  bld(rule="aspell create master -l myen ./en-lower.rws < words_lower.txt",
+      source="myen.dat myen_phonet.dat words_lower.txt", target="en-lower.rws")
       
   bld.program(use="common", source="matchup.cpp", target="matchup")
