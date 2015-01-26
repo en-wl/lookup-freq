@@ -7,11 +7,31 @@
 #include "table.hpp"
 #include "util.hpp"
 
+struct Mapping {
+  char data[256] = {};
+  Mapping() {
+    auto set = [this](const char * from, char to) {
+      for (;*from; ++from) {data[(unsigned char)*from] = to;}
+    };
+    set("aeiouy", '*');
+    set("bfpv", '1');
+    set("cgjkqs", '2');
+    set("dt", '3');
+    set("l", '4');
+    set("mn", '5');
+    set("r", '6');
+  }
+  char operator[](char c) const {
+    return data[(unsigned char)c];
+  }
+};
+static Mapping mapping;
+
 static inline bool is_vowel(char c) {
-  return c == 'a' || c == 'e' || c == 'i' || c == 'o' || c == 'u' || c == 'y';
+  return mapping[c] == '*';
 }
 
-bool bla(const char * a, const char * b) {
+bool very_similar(const char * a, const char * b) {
   if (*a != *b) return false;
   ++a, ++b;
   while (*a != '\0' && *b != '\0' && *a == *b) ++a, ++b;
@@ -48,20 +68,29 @@ bool bla(const char * a, const char * b) {
   return false;
 }
 
+// uses a modified soundex algorithm
 void get_key(const char * p, string & out) {
+  //printf(">in>%s\n", p);
   out.clear();
   if (*p == '\0') {return;}
   out += *p++;
+  auto append = [&out](char c) {
+    if (out.back() != c)
+      out += c;
+  };
   while (*p) {
     if (*p == 'e' && p[1] == '\0') {
       ++p;
-    } else if (is_vowel(*p)) {
-      out += '*'; ++p;
-      while (is_vowel(*p)) ++p;
+    } else if ((*p == 'y' || *p == 'w' || *p == 'h') && is_vowel(p[-1]) && is_vowel(p[1])) {
+      append(*p); ++p;
     } else {
-      out += *p++;
+      char c = mapping[*p];
+      if (c)
+        append(c);
+      ++p;
     }
   }
+  //printf(">out>%s\n", out.c_str());
 }
 
 struct ByFreq {
@@ -102,7 +131,7 @@ int main() {
     //printf("%s:\n", v.first.c_str());
     for (auto i = v.second.begin(); i < v.second.end(); ++i) {
       for (auto j = i + 1; j < v.second.end(); ++j) {
-        if (bla(lookup[*i].str(buffer), lookup[*j].str(buffer))) {
+        if (very_similar(lookup[*i].str(buffer), lookup[*j].str(buffer))) {
           insert(*i, *j);
           insert(*j, *i);
         }
