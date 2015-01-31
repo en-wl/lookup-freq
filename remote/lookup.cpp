@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <string>
 
 #include "final.hpp"
 #include "mmap_vector.hpp"
@@ -53,6 +54,8 @@ struct MoreStats {
 };
 #define MORE_STATS(wi, dict) MoreStats(wi, wi->dict##_incl, spi[SpInfo::dict])
 
+bool non_ascii(unsigned char c) {return c >= 127;}
+
 class Pad {
   char buf[64];
 public:
@@ -81,16 +84,20 @@ int main(int argc, char *argv[]) {
   auto level = NORMAL;
   bool spell_check = false;
   unsigned check_limit = 1000;
-  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)        {level = BRIEF;}
-  else if (argc >= 2 && strcmp(argv[1], "normal") == 0)       {}
-  else if (argc >= 2 && strcmp(argv[1], "similar") == 0)      {spell_check = true;}
-  else if (argc >= 2 && strcmp(argv[1], "full") == 0)         {level = FULL;}
-  else if (argc >= 2 && strcmp(argv[1], "full-similar") == 0) {level = FULL; spell_check = true;}
+  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)          {level = BRIEF;}
+  else if (argc >= 2 && strcmp(argv[1], "normal") == 0)         {}
+  else if (argc >= 2 && strcmp(argv[1], "similar") == 0)        {spell_check = true;}
+  else if (argc >= 2 && strcmp(argv[1], "normal-similar") == 0) {spell_check = true;}
+  else if (argc >= 2 && strcmp(argv[1], "full") == 0)           {level = FULL;}
+  else if (argc >= 2 && strcmp(argv[1], "full-similar") == 0)   {level = FULL; spell_check = true;}
 
   bool do_report = false;
   bool with_incl = true;
+  bool strong = false;
   if (argc >= 3 && strcmp(argv[2], "report-w-incl") == 0) do_report = true;
   if (argc >= 3 && strcmp(argv[2], "report-wo-incl") == 0) {do_report = true; with_incl = false;}
+  if (argc >= 3 && strcmp(argv[2], "report-strong") == 0) {do_report = true; with_incl = false; strong = true;}
+  if (do_report) check_limit = -1;
   if (do_report && level == BRIEF) {
     fprintf(stderr, "Can not crete a 'brief' report.\n");
     exit(1);
@@ -119,6 +126,8 @@ int main(int argc, char *argv[]) {
   char * line = NULL;
   size_t size = 0;
 
+  bool reached_check_limit = false;
+
   Pad pad;
 
   std::vector<WordInfo *>   result;
@@ -136,22 +145,22 @@ int main(int argc, char *argv[]) {
 
     if (!i && lookup.filtered) {
       if (level == BRIEF) {
-        printf("%s |              |       |\n", pad(word,20));
+        printf("%s |              |      |       |\n", pad(word,20));
       } else {
         filtered.push_back(word);
         line = NULL;
       }
     } else if (!i) {
       if (level == BRIEF) {
-        printf("%s |       0      | %-5s | %-5s\n", pad(word,20), "*", "*");
+        printf("%s |       0      |      | %-5s | %-5s\n", pad(word,20), "*", "*");
       } else {
         not_found.push_back(word);
         line = NULL;
       }
     } else {
       if (level == BRIEF) {
-        printf("%s | %'12.4f | %-5s | %-5s\n", pad(word,20), 
-               i->freq*1e6,
+        printf("%s | %'12.4f | %4.1f | %-5s | %-5s\n", pad(word,20), 
+               i->freq*1e6, i->newness,
                MORE_STATS(i, normal).score, MORE_STATS(i, large).score);
       } else {
         result.push_back(i);
@@ -162,41 +171,74 @@ int main(int argc, char *argv[]) {
   std::sort(result.begin(), result.end(), [](auto a, auto b){return a < b;});
 
   auto write_header = [&](FILE * out) {
+    auto what = spell_check ? "similar words" : "original words";
     if (level == NORMAL) {
       fprintf(out, "Word                 |  Adj. Freq   Newness Rank | Normal dict | Large dict\n");
-      fprintf(out, "                     |  (per million)            | should incl | should incl\n");
+      fprintf(out, "  %-19s|  (per million)            | should incl | should incl\n", what);
       fprintf(out, "---------------------|---------------------------|-------------|-------------\n");
     } else if (level == FULL) {
       fprintf(out, "Word                 |  Adj. Freq   Newness Rank |     Normal dictionary stats       |     Large dictionary stats\n");
-      fprintf(out, "                     |  (per million)            | F Score  Dist Coverg Positn  Incl | F Score  Dist Coverg Positn  Incl\n");
+      fprintf(out, "  %-19s|  (per million)            | F Score  Dist Coverg Positn  Incl | F Score  Dist Coverg Positn  Incl\n",what);
       fprintf(out, "---------------------|---------------------------|-----------------------------------|-----------------------------------\n");
     }
   };
   FILE * devnull = fopen("/dev/null", "w");
   unsigned checked=0;
+  string repr;
   auto use_ = [](auto out){return [out](auto wi, auto normal, auto large){return out;};};
   auto use_stdout = use_(stdout);
-  auto write_line = [&](auto outf, auto first_part, auto i) {
+  auto write_entry = [&](char * pos, auto outf) {
+    auto i = (WordInfo *)pos;
     auto normal = MORE_STATS(i, normal);
     auto large  = MORE_STATS(i, large);
     auto out = outf(i,normal,large);
-    first_part(out);
-    if (level == NORMAL) 
-      fprintf(out, "%4.1f %7u |    %-5s    |    %-5s\n", 
-              i->newness, i->rank, normal.found_or_score(), large.found_or_score());
-    else
-      fprintf(out, "%4.1f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
-              i->newness, i->rank,
-              normal.found ? 'Y' : '-', normal.score, normal.diff, normal.rank_per, normal.total_per, i->normal_incl,
-              large.found ? 'Y' : '-', large.score, large.diff, large.rank_per, large.total_per, i->large_incl);
-    return out;
-  };
-  auto write_entry = [&](char * pos, auto outf) {
-    auto i = (WordInfo *)pos;
-    auto out = write_line(outf, [&](auto out){fprintf(out, "%-20s | %'12.4f ", i->word, i->freq*1e6);}, i);
+
+    if (!reached_check_limit && checked > check_limit) {
+      reached_check_limit = true;
+      fprintf(out, "*** Too many words: only showing similar words for the %u most frequent entries. ***\n\n",
+              check_limit);
+    }
+
+    auto get_repr = [&repr](WordInfo * wi) {
+      const char * lower = wi->word;
+      auto p = (const char *)wi + wi->skip;
+      auto i = (OrigWordInfo *)p;
+      repr = lower;
+      for (unsigned j = 0; j < repr.size(); ++j) {
+        if (non_ascii(i->word[j])) break;
+        repr[j] = i->word[j];
+      }
+      float percent_so_far = i->percent;
+      if (percent_so_far < 87.5 && i->more) {
+        for (;;) {
+          p += i->skip;
+          i = (OrigWordInfo *)p;
+          for (unsigned j = 0; j < repr.size(); ++j) {
+            if (non_ascii(i->word[j])) break;
+            if (asc_islower(i->word[j])) repr[j] = i->word[j];
+          }
+          percent_so_far += i->percent;
+          if (!i->more || percent_so_far >= 87.5) break;
+        }
+      }
+    };
+    get_repr(i);
+    fprintf(out, "%-20s | %'12.4f ", repr.c_str(), i->freq*1e6);
+
+    auto write_rest = [level,out](auto i, auto normal, auto large) {
+      if (level == NORMAL) 
+        fprintf(out, "%4.1f %7u |    %-5s    |    %-5s\n", 
+                i->newness, i->rank, normal.found_or_score(), large.found_or_score());
+      else
+        fprintf(out, "%4.1f %7u | %c %-5s %+5.1f %6.2f %6.2f %5u | %c %-5s %+5.1f %6.2f %6.2f %6u\n",
+                i->newness, i->rank,
+                normal.found ? 'Y' : '-', normal.score, normal.diff, normal.rank_per, normal.total_per, i->normal_incl,
+                large.found ? 'Y' : '-', large.score, large.diff, large.rank_per, large.total_per, i->large_incl);
+    };
+    write_rest(i, normal, large);
 
     pos += i->skip;
-    
+
     bool more = true;
     for (OrigWordInfo * i = NULL;more && level >= NORMAL;) {
       i = (OrigWordInfo *)pos;
@@ -211,7 +253,7 @@ int main(int argc, char *argv[]) {
       more = i->more;
       pos += i->skip;
     }
-    if (spell_check && out != devnull && checked <= check_limit) {
+    if (!reached_check_limit && spell_check && out != devnull) {
       checked++;
       const AspellWordList * suggestions = aspell_speller_suggest(spell_checker,
                                                                   i->word, strlen(i->word));
@@ -231,9 +273,11 @@ int main(int argc, char *argv[]) {
       sort(sugs.begin(), sugs.end(), [](auto a, auto b){return a->freq > b->freq;});
 
       for (auto wi : sugs) {
+        get_repr(wi);
         float ratio = wi->freq/i->freq;
         if (ratio >= 0.5) {
-          write_line(use_(out), [&](auto out){fprintf(out,"  %-18s |%'9.1fx    ", wi->word, ratio);}, wi);
+          fprintf(out,"  %-18s |%'9.1fx    ", repr.c_str(), ratio);
+          write_rest(wi, MORE_STATS(wi, normal), MORE_STATS(wi, large));
         }
       }
       fprintf(out, "\n");
@@ -246,8 +290,16 @@ int main(int argc, char *argv[]) {
     char * pos = lookup.data.data;
     write_header(stdout);
     for (;;) {
-      pos = write_entry(pos, [&](auto wi, auto normal, auto large){
-          if (strlen(large.score) >= 4 && (with_incl || !normal.found)) return stdout;
+      pos = write_entry(pos, [&](auto wi, auto normal, auto large) {
+          if (!strong 
+              && strlen(large.score) >= 3 
+              && (with_incl || !normal.found)) 
+            return stdout;
+          else if (strong 
+                   && !normal.found 
+                   && (strlen(normal.score) >= 4 
+                       || (strlen(normal.score) >= 3 && large.found))) 
+            return stdout;
           else return devnull;
         });
       if (pos == lookup.data.end()) break;
