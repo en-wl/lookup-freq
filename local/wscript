@@ -84,7 +84,7 @@ def build(bld):
                   rpath='/aux/ngrams/cxx/cmph/lib/',
                   **args)
 
-  forVps("for-vps", use="common")
+  forVps("for-vps", use="common") #, cxxflags='-O0 -g', linkflags='-g')
   forVps("lookup", lib=['aspell'])
   forVps("spell", lib=['aspell'])
 
