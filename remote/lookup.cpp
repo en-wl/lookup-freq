@@ -72,6 +72,8 @@ public:
   };
 };
 
+enum AlsoReport {NEITHER, SIMILAR, ORIGINAL};
+
 int main(int argc, char *argv[]) {
   setlocale (LC_ALL, "en_US.UTF-8");
   //sp.load<Lower,Recent>();
@@ -82,21 +84,25 @@ int main(int argc, char *argv[]) {
                    {sp.large.non_filtered.freq, sp.large.non_filtered.rank, 1}};
   
   auto level = NORMAL;
-  bool spell_check = false;
   unsigned check_limit = 1000;
-  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)          {level = BRIEF;}
-  else if (argc >= 2 && strcmp(argv[1], "normal") == 0)         {}
-  else if (argc >= 2 && strcmp(argv[1], "similar") == 0)        {spell_check = true;}
-  else if (argc >= 2 && strcmp(argv[1], "normal-similar") == 0) {spell_check = true;}
-  else if (argc >= 2 && strcmp(argv[1], "full") == 0)           {level = FULL;}
-  else if (argc >= 2 && strcmp(argv[1], "full-similar") == 0)   {level = FULL; spell_check = true;}
+  if      (argc >= 2 && strcmp(argv[1], "brief") == 0)  {level = BRIEF;}
+  else if (argc >= 2 && strcmp(argv[1], "normal") == 0) {level = NORMAL;}
+  else if (argc >= 2 && strcmp(argv[1], "full") == 0)   {level = FULL;}
+  else if (argc >= 2) {printf("invalid argument, pos 1\n"); exit(1);}
+
+  auto also_report = SIMILAR;
+  if      (argc >= 3 && strcmp(argv[2], "similar") == 0)  {also_report = SIMILAR;}
+  else if (argc >= 3 && strcmp(argv[2], "original") == 0) {also_report = ORIGINAL;}
+  else if (argc >= 3 && strcmp(argv[2], "neither") == 0)  {also_report = NEITHER;}
+  else if (argc >= 3) {printf("invalid argument, pos 2\n"); exit(1);}
 
   bool do_report = false;
   bool with_incl = true;
   bool strong = false;
-  if (argc >= 3 && strcmp(argv[2], "report-w-incl") == 0) do_report = true;
-  if (argc >= 3 && strcmp(argv[2], "report-wo-incl") == 0) {do_report = true; with_incl = false;}
-  if (argc >= 3 && strcmp(argv[2], "report-strong") == 0) {do_report = true; with_incl = false; strong = true;}
+  if      (argc >= 4 && strcmp(argv[3], "report-w-incl") == 0) do_report = true;
+  else if (argc >= 4 && strcmp(argv[3], "report-wo-incl") == 0) {do_report = true; with_incl = false;}
+  else if (argc >= 4 && strcmp(argv[3], "report-strong") == 0) {do_report = true; with_incl = false; strong = true;}
+  else if (argc >= 4) {printf("invalid argument, pos 3\n"); exit(1);}
   if (do_report) check_limit = -1;
   if (do_report && level == BRIEF) {
     fprintf(stderr, "Can not crete a 'brief' report.\n");
@@ -105,7 +111,7 @@ int main(int argc, char *argv[]) {
 
   AspellSpeller * spell_checker = 0;
   vector<WordInfo *> sugs;
-  if (spell_check) {
+  if (also_report == SIMILAR) {
     AspellConfig * spell_config = new_aspell_config();
     aspell_config_replace(spell_config, "master", "./en-lower.rws");
     aspell_config_replace(spell_config, "sug-mode", "ultra");
@@ -171,7 +177,8 @@ int main(int argc, char *argv[]) {
   std::sort(result.begin(), result.end(), [](auto a, auto b){return a < b;});
 
   auto write_header = [&](FILE * out) {
-    auto what = spell_check ? "similar words" : "original words";
+    auto what = (also_report == SIMILAR ? "similar words" :
+                 also_report == ORIGINAL ? "original words" : "");
     if (level == NORMAL) {
       fprintf(out, "Word                 |  Adj. Freq   Newness Rank | Normal dict | Large dict\n");
       fprintf(out, "  %-19s|  (per million)            | should incl | should incl\n", what);
@@ -243,7 +250,7 @@ int main(int argc, char *argv[]) {
     for (OrigWordInfo * i = NULL;more && level >= NORMAL;) {
       i = (OrigWordInfo *)pos;
       auto freq_per = i->percent;
-      if (!spell_check && freq_per > 1.0) {
+      if (also_report == ORIGINAL && freq_per > 1.0) {
         fprintf(out,"  %s | %3.0f%%", pad(i->word, 18), freq_per);
         if (level == NORMAL)
           fprintf(out,"                      |             |\n");
@@ -253,7 +260,7 @@ int main(int argc, char *argv[]) {
       more = i->more;
       pos += i->skip;
     }
-    if (!reached_check_limit && spell_check && out != devnull) {
+    if (!reached_check_limit && also_report == SIMILAR && out != devnull) {
       checked++;
       const AspellWordList * suggestions = aspell_speller_suggest(spell_checker,
                                                                   i->word, strlen(i->word));
